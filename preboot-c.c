@@ -108,15 +108,6 @@ void loader_main(void *linux_dtb, struct iphone_boot_args *bootargs, uint64_t sm
                 dt_put64be(prop->buf + 48 * i + 16, rvbar + 8 * i);
     }
 
-    printf("Starting secondary CPUs...\n");
-    for(i=1; i<8; i++) {
-        unsigned clst = i >> 2;
-        unsigned ccpu = i & 3;
-        *(volatile uint32_t *)0x23b754004 = 1 << i;
-        *(volatile uint32_t *)0x23b754008 = clst ? 0 : (1 << ccpu);
-        *(volatile uint32_t *)0x23b75400c = clst ? (1 << ccpu) : 0;
-    }
-
     printf("Loader complete, relocating kernel...\n");
     dt_write_dtb(linux_dt, linux_dtb, 0x20000);
     dt_free(linux_dt);
