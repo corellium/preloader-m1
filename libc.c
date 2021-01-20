@@ -286,7 +286,7 @@ int putchar(int c)
             wp = video.base + (video.height / 16 - 1) * video.stride * 16;
             y = (16 * video.stride) / 4;
             for(x=0; x<y; x++)
-                *(wp ++) = 0x0000003f;
+                *(wp ++) = 0x0000001f;
             video.ypos -= 16;
         }
         if(print) {
@@ -295,7 +295,7 @@ int putchar(int c)
             for(y=0; y<16; y++) {
                 rb = *(rp ++);
                 for(x=0; x<8; x++) {
-                    *(wp ++) = (rb & 0x80) ? 0x3fffffff : 0x02f0005f;
+                    *(wp ++) = (rb & 0x80) ? 0x3fffffff : 0x0000002f;
                     rb <<= 1;
                 }
                 wp += video.stride / 4 - 8;

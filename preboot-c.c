@@ -29,6 +29,28 @@ struct iphone_boot_args {
 
 void setarena(uint64_t base, uint64_t size);
 
+#define DISP0_SURF0_PIXFMT      0x230850030
+#define DISP0_SURF0_CSCBYPASS   0x230850178
+#define DISP0_SURF0_CSCMATRIX   0x230850188
+
+static void configure_x8b8g8r8(void)
+{
+    unsigned i, j;
+    *(volatile uint32_t *)DISP0_SURF0_PIXFMT = 0x5000; /* pixfmt: x8r8g8b8. if you try other modes they are pretty ugly */
+    for(i=0; i<3; i++)
+        for(j=0; j<3; j++)
+            *(volatile uint32_t *)(DISP0_SURF0_CSCMATRIX + 4 * j + 12 * i) = (i + j == 2) ? 0x1000 : 0; /* matrix coeffs */
+    *(volatile uint32_t *)DISP0_SURF0_CSCBYPASS &= ~0x11; /* enable matrix; both bits must be cleared */
+}
+
+static void byteswap32(uint32_t *buf, unsigned size)
+{
+    while(size --) {
+        *buf = __builtin_bswap32(*buf);
+        buf ++;
+    }
+}
+
 void loader_main(void *linux_dtb, struct iphone_boot_args *bootargs, uint64_t smpentry, uint64_t rvbar)
 {
     dtree *linux_dt;
@@ -107,6 +129,9 @@ void loader_main(void *linux_dtb, struct iphone_boot_args *bootargs, uint64_t sm
             for(i=0; i<prop->size/48; i++)
                 dt_put64be(prop->buf + 48 * i + 16, rvbar + 8 * i);
     }
+
+
+    configure_x8b8g8r8();
 
     printf("Loader complete, relocating kernel...\n");
     dt_write_dtb(linux_dt, linux_dtb, 0x20000);

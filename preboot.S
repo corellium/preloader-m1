@@ -292,8 +292,7 @@ start:
     mov x1, #0
     ldr x2, [x24, #0x40]
     ldr x3, [x24, #0x48]
-    mov w4, #0x0000003f
-    orr w4, w4, #0x01f00000
+    mov w4, #0x0000001f
     bl fill_rect
 
     mov x1, #0x35200000
