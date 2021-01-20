@@ -242,7 +242,7 @@ dtree *dt_parse_dtb(void *_dtb, unsigned dtblen)
     return tree;
 }
 
-static void dt_write_dtb_offset_func(void *_param, char *str, void *_elem)
+static void dt_write_dtb_offset_func(void *_param, const char *str, void *_elem)
 {
     unsigned *param = _param;
     dt_name *elem = _elem;
@@ -255,7 +255,7 @@ static void dt_write_dtb_offset_func(void *_param, char *str, void *_elem)
     *param += strlen(dt_dict_str(elem)) + 1;
 }
 
-static void dt_write_dtb_write_func(void *_param, char *str, void *_elem)
+static void dt_write_dtb_write_func(void *_param, const char *str, void *_elem)
 {
     char *param = _param;
     dt_name *elem = _elem;
@@ -353,7 +353,7 @@ unsigned dt_write_dtb(dtree *tree, void *_dtb, unsigned dtbmaxlen)
     return 40 + len_memrsv + len_struct + len_string;
 }
 
-static int dt_is_string(char *str, unsigned len)
+static int dt_is_string(const char *str, unsigned len)
 {
     unsigned cnt;
     if(len < 2)
@@ -374,9 +374,9 @@ static int dt_is_string(char *str, unsigned len)
     return 1;
 }
 
-dt_node *dt_find_node_idx(dtree *tree, dt_node *start, char *path, int index)
+dt_node *dt_find_node_idx(dtree *tree, dt_node *start, const char *path, int index)
 {
-    char *sep;
+    const char *sep;
 
     if(!tree)
         return NULL;
@@ -423,7 +423,7 @@ dt_node *dt_find_node_idx(dtree *tree, dt_node *start, char *path, int index)
     return start;
 }
 
-dt_prop *dt_find_prop(dtree *tree, dt_node *node, char *name)
+dt_prop *dt_find_prop(dtree *tree, dt_node *node, const char *name)
 {
     void *key;
     dt_prop *prop;
@@ -440,7 +440,7 @@ dt_prop *dt_find_prop(dtree *tree, dt_node *node, char *name)
     return prop;
 }
 
-dt_node *dt_add_node(dt_node *parent, char *name)
+dt_node *dt_add_node(dt_node *parent, const char *name)
 {
     dt_node *node = calloc(1, sizeof(dt_node)), **pnode;
     if(!node)
@@ -483,7 +483,7 @@ int dt_delete_node(dt_node *node)
     return 0;
 }
 
-dt_prop *dt_set_prop(dtree *tree, dt_node *node, char *name, void *buf, int size)
+dt_prop *dt_set_prop(dtree *tree, dt_node *node, const char *name, void *buf, int size)
 {
     dt_name *key = dt_dict_find(tree->names, name, DT_DICT_ANY);
     dt_prop **pprop;

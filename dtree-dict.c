@@ -111,7 +111,7 @@ static void dt_dict_rebalance(dt_elem *elem)
     }
 }
 
-void *dt_dict_find(dt_dict *_dict, char *str, unsigned mode)
+void *dt_dict_find(dt_dict *_dict, const char *str, unsigned mode)
 {
     dt_dict *dict = _dict;
     dt_elem **pelem = &(dict->root), *parent = NULL;
@@ -149,7 +149,7 @@ void *dt_dict_find(dt_dict *_dict, char *str, unsigned mode)
     return parent + 1;
 }
 
-static void dt_dict_iter_recurse(dt_elem *elem, void(*func)(void *param, char *str, void *elem), void *param)
+static void dt_dict_iter_recurse(dt_elem *elem, void(*func)(void *param, const char *str, void *elem), void *param)
 {
     if(elem->left)
         dt_dict_iter_recurse(elem->left, func, param);
@@ -158,7 +158,7 @@ static void dt_dict_iter_recurse(dt_elem *elem, void(*func)(void *param, char *s
         dt_dict_iter_recurse(elem->right, func, param);
 }
 
-void dt_dict_iter(dt_dict *_dict, void(*func)(void *param, char *str, void *elem), void *param)
+void dt_dict_iter(dt_dict *_dict, void(*func)(void *param, const char *str, void *elem), void *param)
 {
     dt_dict *dict = _dict;
     if(dict->root)

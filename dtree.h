@@ -16,8 +16,8 @@ typedef struct dt_dict_s dt_dict;
 #define DT_DICT_ANY     3
 
 dt_dict *dt_dict_new(int size);
-void *dt_dict_find(dt_dict *dict, char *str, unsigned mode);
-void dt_dict_iter(dt_dict *dict, void(*func)(void *param, char *str, void *elem), void *param);
+void *dt_dict_find(dt_dict *dict, const char *str, unsigned mode);
+void dt_dict_iter(dt_dict *dict, void(*func)(void *param, const char *str, void *elem), void *param);
 char *dt_dict_str(void *elem);
 void dt_dict_free(dt_dict *dict);
 
@@ -48,12 +48,12 @@ typedef struct dtree_s {
 dtree *dt_new(void);
 dtree *dt_parse_dtb(void *dtb, unsigned dtblen);
 unsigned dt_write_dtb(dtree *tree, void *dtb, unsigned dtbmaxlen);
-dt_node *dt_find_node_idx(dtree *tree, dt_node *start, char *path, int index);
-static inline dt_node *dt_find_node(dtree *tree, char *path) { return dt_find_node_idx(tree, (void *)0, path, 0); }
-dt_prop *dt_find_prop(dtree *tree, dt_node *node, char *name);
-dt_node *dt_add_node(dt_node *parent, char *name);
+dt_node *dt_find_node_idx(dtree *tree, dt_node *start, const char *path, int index);
+static inline dt_node *dt_find_node(dtree *tree, const char *path) { return dt_find_node_idx(tree, (void *)0, path, 0); }
+dt_prop *dt_find_prop(dtree *tree, dt_node *node, const char *name);
+dt_node *dt_add_node(dt_node *parent, const char *name);
 int dt_delete_node(dt_node *node);
-dt_prop *dt_set_prop(dtree *tree, dt_node *node, char *name, void *buf, int size);
+dt_prop *dt_set_prop(dtree *tree, dt_node *node, const char *name, void *buf, int size);
 int dt_delete_prop(dt_prop *prop);
 dt_node *dt_copy_node(dtree *tree, dt_node *parent, dt_node *source);
 void dt_dump(dtree *tree);

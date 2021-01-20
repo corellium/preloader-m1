@@ -8,6 +8,7 @@
 
 #include "libc.h"
 #include "dtree.h"
+#include "adtree.h"
 
 #define BOOT_LINE_LENGTH        256
 struct iphone_boot_args {
@@ -27,6 +28,8 @@ struct iphone_boot_args {
     char cmdline[BOOT_LINE_LENGTH];
 };
 
+static unsigned warning_count;
+
 void setarena(uint64_t base, uint64_t size);
 
 #define DISP0_SURF0_PIXFMT      0x230850030
@@ -43,22 +46,139 @@ static void configure_x8b8g8r8(void)
     *(volatile uint32_t *)DISP0_SURF0_CSCBYPASS &= ~0x11; /* enable matrix; both bits must be cleared */
 }
 
-static void byteswap32(uint32_t *buf, unsigned size)
+#define TUNABLE_LEGACY 0
+#define TUNABLE_FANCY  1
+
+static unsigned write_tunable_item(uint32_t *lbuf, uint64_t addr, uint32_t mask, uint32_t val, uint64_t *lreg, unsigned lnreg, const char *ldtnname)
 {
-    while(size --) {
-        *buf = __builtin_bswap32(*buf);
-        buf ++;
+    unsigned ireg;
+    for(ireg=0; ireg<lnreg; ireg++)
+        if(addr >= lreg[ireg*2] && addr - lreg[ireg*2] < lreg[ireg*2+1])
+            break;
+    if(ireg >= lnreg) {
+        if(lbuf) {
+            printf("Address 0x%lx not within range of target (%s).\n", addr, ldtnname);
+            warning_count ++;
+        }
+        return 0;
     }
+
+    if(lbuf) {
+        lbuf[0] = __builtin_bswap32((addr - lreg[ireg*2]) | (ireg << 28));
+        lbuf[1] = __builtin_bswap32(mask);
+        lbuf[2] = __builtin_bswap32(val);
+    }
+    return 1;
+}
+
+static int rebuild_tunable(void *abuf, unsigned asize, uint64_t *areg, unsigned anreg, uint32_t *lbuf, uint64_t *lreg, unsigned lnreg, unsigned mode, const char *ldtnname, const char *adtnname, const char *adtpname)
+{
+    unsigned count = 0, aoffs, rid, offs, size;
+
+    switch(mode) {
+    case TUNABLE_FANCY:
+        for(aoffs=0; aoffs<asize; ) {
+            offs = *(uint32_t *)(abuf + aoffs);
+            size = offs >> 24;
+            offs &= 0xFFFFFF;
+            switch(size) {
+            case 0:
+            case 32:
+                count += write_tunable_item(lbuf ? lbuf + count * 3 : NULL, areg[0] + offs, *(uint32_t *)(abuf + aoffs + 4), *(uint32_t *)(abuf + aoffs + 8), lreg, lnreg, ldtnname);
+                aoffs += 12;
+                break;
+            case 255:
+                return 0;
+            default:
+                printf("Tunable %s.%s has unexpected item size %d\n", adtnname, adtpname, size);
+                warning_count ++;
+                return 0;
+            }
+        }
+        break;
+    case TUNABLE_LEGACY:
+        for(aoffs=0; aoffs<asize; aoffs+=16) {
+            rid = *(uint32_t *)(abuf + aoffs);
+            if(rid > anreg) {
+                printf("Tunable %s.%s has invalid range index %d at %d.\n", adtnname, adtpname, rid, aoffs);
+                warning_count ++;
+                continue;
+            }
+            offs = *(uint32_t *)(abuf + aoffs + 4);
+            count += write_tunable_item(lbuf ? lbuf + count * 3 : NULL, areg[rid*2] + offs, *(uint32_t *)(abuf + aoffs + 8), *(uint32_t *)(abuf + aoffs + 12), lreg, lnreg, ldtnname);
+        }
+        break;
+    }
+
+    return count;
+}
+
+static void prepare_tunable(dtree *adt, const char *adtnname, const char *adtpname, dtree *ldt, const char *ldtnname, const char *ldtpname, unsigned mode, uint64_t base)
+{
+    dt_node *adtnode, *ldtnode;
+    dt_prop *adtprop, *adtreg, *ldtprop, *ldtreg;
+    int res;
+    uint64_t vbase[2] = { base, 0 };
+
+    /* this somewhat optimistically assumes 64-bit address and size in both "reg" props */
+
+    if(!adt)
+        return;
+    adtnode = dt_find_node(adt, adtnname);
+    if(!adtnode) {
+        printf("Node '%s' not found in %s device tree.\n", adtnname, "Apple");
+        warning_count ++;
+        return;
+    }
+    adtprop = dt_find_prop(adt, adtnode, adtpname);
+    if(!adtprop) {
+        printf("Property '%s.%s' not found in %s device tree.\n", adtnname, adtpname, "Apple");
+        warning_count ++;
+        return;
+    }
+    if(mode == TUNABLE_LEGACY) {
+        adtreg = dt_find_prop(adt, adtnode, "reg");
+        if(!adtreg) {
+            printf("Property '%s.%s' not found in %s device tree.\n", adtnname, "reg", "Apple");
+            warning_count ++;
+            return;
+        }
+    } else
+        adtreg = NULL;
+
+    ldtnode = dt_find_node(ldt, ldtnname);
+    if(!ldtnode) {
+        printf("Node '%s' not found in %s device tree.\n", ldtnname, "Linux");
+        warning_count ++;
+        return;
+    }
+    ldtreg = dt_find_prop(ldt, ldtnode, "reg");
+    if(!ldtreg) {
+        printf("Property '%s.%s' not found in %s device tree.\n", ldtnname, "reg", "Linux");
+        warning_count ++;
+        return;
+    }
+
+    res = rebuild_tunable(adtprop->buf, adtprop->size, adtreg ? adtreg->buf : vbase, adtreg ? adtreg->size / 16 : 1, NULL, ldtreg->buf, ldtreg->size / 16, mode, ldtnname, adtnname, adtpname);
+    if(res < 0)
+        return;
+
+    ldtprop = dt_set_prop(ldt, ldtnode, ldtpname, NULL, res * 12);
+    if(!ldtprop)
+        return;
+
+    rebuild_tunable(adtprop->buf, adtprop->size, adtreg ? adtreg->buf : vbase, adtreg ? adtreg->size / 16 : 1, ldtprop->buf, ldtreg->buf, ldtreg->size / 16, mode, ldtnname, adtnname, adtpname);
 }
 
 void loader_main(void *linux_dtb, struct iphone_boot_args *bootargs, uint64_t smpentry, uint64_t rvbar)
 {
-    dtree *linux_dt;
+    dtree *linux_dt, *apple_dt;
     dt_node *node;
     dt_prop *prop;
     uint64_t memsize, base;
     unsigned i;
 
+    warning_count = 0;
     memsize = (bootargs->mem_size + 0x3ffffffful) & ~0x3ffffffful;
 
     setarena(0x880000000ul, 0x100000);
@@ -70,6 +190,12 @@ void loader_main(void *linux_dtb, struct iphone_boot_args *bootargs, uint64_t sm
     if(!linux_dt) {
         printf("Failed parsing Linux device-tree.\n");
         return;
+    }
+
+    apple_dt = adt_parse((void *)(bootargs->dtree_virt - bootargs->virt_base + bootargs->phys_base), bootargs->dtree_size);
+    if(!apple_dt) {
+        printf("Failed parsing Apple device-tree.\n");
+        warning_count ++;
     }
 
     node = dt_find_node(linux_dt, "/framebuffer");
@@ -130,8 +256,17 @@ void loader_main(void *linux_dtb, struct iphone_boot_args *bootargs, uint64_t sm
                 dt_put64be(prop->buf + 48 * i + 16, rvbar + 8 * i);
     }
 
+    prepare_tunable(apple_dt, "/arm-io/atc-phy0", "tunable_ATC0AXI2AF", linux_dt, "/soc/usb_drd0", "tunable-ATC0AXI2AF", TUNABLE_FANCY, 0);
+    prepare_tunable(apple_dt, "/arm-io/usb-drd0", "tunable",            linux_dt, "/soc/usb_drd0", "tunable",            TUNABLE_LEGACY, 0x380000000);
+    prepare_tunable(apple_dt, "/arm-io/atc-phy1", "tunable_ATC0AXI2AF", linux_dt, "/soc/usb_drd1", "tunable-ATC0AXI2AF", TUNABLE_FANCY, 0);
+    prepare_tunable(apple_dt, "/arm-io/usb-drd1", "tunable",            linux_dt, "/soc/usb_drd1", "tunable",            TUNABLE_LEGACY, 0x500000000);
 
     configure_x8b8g8r8();
+
+    if(warning_count) {
+        printf("%d warnings; waiting to let you see them.\n");
+        udelay(7000000);
+    }
 
     printf("Loader complete, relocating kernel...\n");
     dt_write_dtb(linux_dt, linux_dtb, 0x20000);
