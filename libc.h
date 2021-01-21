@@ -32,6 +32,7 @@ void *malloc(size_t size);
 void *calloc(size_t nmemb, size_t size);
 void free(void *ptr);
 
+extern unsigned warning_count;
 void setvideo(void *base, unsigned width, unsigned height, unsigned stride);
 int putchar(int c);
 int puts(const char *s);

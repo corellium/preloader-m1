@@ -9,13 +9,15 @@ linux.macho: machopack preboot.bin Image apple-m1-j274.dtb
 preboot.bin: preboot.elf
 	$(AA64)objcopy -Obinary $^ $@
 
-preboot.elf: preboot.o preboot-c.o dtree-dict.o dtree.o adtree.o libc.o printf.o unscii-16.o preboot.ld
-	$(AA64)gcc -Wl,-T,preboot.ld -Wl,--build-id=none -nostdlib -o $@ preboot.o preboot-c.o dtree-dict.o dtree.o adtree.o printf.o libc.o unscii-16.o
+preboot.elf: preboot.o preboot-c.o tunable.o dtree-dict.o dtree.o adtree.o libc.o printf.o unscii-16.o preboot.ld
+	$(AA64)gcc -Wl,-T,preboot.ld -Wl,--build-id=none -nostdlib -o $@ preboot.o preboot-c.o tunable.o dtree-dict.o dtree.o adtree.o printf.o libc.o unscii-16.o
 
 preboot.o: preboot.S
 	$(AA64)gcc -c $^
 
-preboot-c.o: preboot-c.c dtree.h libc.h
+preboot-c.o: preboot-c.c dtree.h adtree.h libc.h tunable.h
+	$(AA64)gcc $(AA64CFLAGS) -c $<
+tunable.o: tunable.c dtree.h libc.h tunable.h
 	$(AA64)gcc $(AA64CFLAGS) -c $<
 dtree-dict.o: dtree-dict.c dtree.h libc.h
 	$(AA64)gcc $(AA64CFLAGS) -c $<
@@ -31,4 +33,4 @@ unscii-16.o: unscii-16.c
 	$(AA64)gcc $(AA64CFLAGS) -c $<
 
 clean:
-	rm -f machopack linux.macho preboot.bin preboot.elf preboot.o preboot-c.o dtree-dict.o dtree.o libc.o printf.o unscii-16.o
+	rm -f machopack linux.macho preboot.bin preboot.elf preboot.o preboot-c.o tunable.o dtree-dict.o dtree.o adtree.o libc.o printf.o unscii-16.o

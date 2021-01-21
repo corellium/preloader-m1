@@ -308,3 +308,5 @@ int putchar(int c)
         putchar('\r');
     return c;
 }
+
+unsigned warning_count;
