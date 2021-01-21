@@ -33,17 +33,10 @@ static unsigned warning_count;
 void setarena(uint64_t base, uint64_t size);
 
 #define DISP0_SURF0_PIXFMT      0x230850030
-#define DISP0_SURF0_CSCBYPASS   0x230850178
-#define DISP0_SURF0_CSCMATRIX   0x230850188
 
-static void configure_x8b8g8r8(void)
+static void configure_x8r8g8b8(void)
 {
-    unsigned i, j;
     *(volatile uint32_t *)DISP0_SURF0_PIXFMT = 0x5000; /* pixfmt: x8r8g8b8. if you try other modes they are pretty ugly */
-    for(i=0; i<3; i++)
-        for(j=0; j<3; j++)
-            *(volatile uint32_t *)(DISP0_SURF0_CSCMATRIX + 4 * j + 12 * i) = (i + j == 2) ? 0x1000 : 0; /* matrix coeffs */
-    *(volatile uint32_t *)DISP0_SURF0_CSCBYPASS &= ~0x11; /* enable matrix; both bits must be cleared */
 }
 
 #define TUNABLE_LEGACY 0
@@ -217,6 +210,8 @@ void loader_main(void *linux_dtb, struct iphone_boot_args *bootargs, uint64_t sm
         prop = dt_find_prop(linux_dt, node, "stride");
         if(prop)
             dt_put32be(prop->buf, bootargs->video.stride);
+
+        dt_set_prop(linux_dt, node, "format", "x8r8g8b8", 9);
     }
 
     node = dt_find_node(linux_dt, "/memory");
@@ -261,7 +256,7 @@ void loader_main(void *linux_dtb, struct iphone_boot_args *bootargs, uint64_t sm
     prepare_tunable(apple_dt, "/arm-io/atc-phy1", "tunable_ATC0AXI2AF", linux_dt, "/soc/usb_drd1", "tunable-ATC0AXI2AF", TUNABLE_FANCY, 0);
     prepare_tunable(apple_dt, "/arm-io/usb-drd1", "tunable",            linux_dt, "/soc/usb_drd1", "tunable",            TUNABLE_LEGACY, 0x500000000);
 
-    configure_x8b8g8r8();
+    configure_x8r8g8b8();
 
     if(warning_count) {
         printf("%d warnings; waiting to let you see them.\n");
