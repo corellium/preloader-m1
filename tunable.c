@@ -30,6 +30,15 @@ static unsigned write_tunable_item(uint32_t *lbuf, uint64_t addr, uint32_t mask,
     return 1;
 }
 
+static void swapcpy(void *_d, const void *_s, size_t sz, size_t axor)
+{
+    uint8_t *d = _d;
+    const uint8_t *s = _s;
+    size_t i;
+    for(i=0; i<sz; i++)
+        d[i] = s[i ^ axor];
+}
+
 static int rebuild_tunable(void *abuf, unsigned asize, uint64_t *areg, unsigned anreg, uint32_t *lbuf, uint64_t *lreg, unsigned lnreg, unsigned mode, const char *ldtnname, const char *adtnname, const char *adtpname)
 {
     unsigned count = 0, aoffs, rid, offs, size;
@@ -54,6 +63,7 @@ static int rebuild_tunable(void *abuf, unsigned asize, uint64_t *areg, unsigned 
                 return 0;
             }
         }
+        count *= 12;
         break;
     case TUNABLE_LEGACY:
         for(aoffs=0; aoffs<asize; aoffs+=16) {
@@ -66,6 +76,7 @@ static int rebuild_tunable(void *abuf, unsigned asize, uint64_t *areg, unsigned 
             offs = *(uint32_t *)(abuf + aoffs + 4);
             count += write_tunable_item(lbuf ? lbuf + count * 3 : NULL, areg[rid*2] + offs, *(uint32_t *)(abuf + aoffs + 8), *(uint32_t *)(abuf + aoffs + 12), lreg, lnreg, ldtnname);
         }
+        count *= 12;
         break;
     case TUNABLE_PCIE:
         for(aoffs=0; aoffs<asize; aoffs+=24) {
@@ -77,6 +88,17 @@ static int rebuild_tunable(void *abuf, unsigned asize, uint64_t *areg, unsigned 
             }
             offs = *(uint32_t *)(abuf + aoffs);
             count += write_tunable_item(lbuf ? lbuf + count * 3 : NULL, areg[0] + offs, *(uint32_t *)(abuf + aoffs + 8), *(uint32_t *)(abuf + aoffs + 16), lreg, lnreg, ldtnname);
+        }
+        count *= 12;
+        break;
+    case TUNABLE_PLAIN:
+        size = areg[0] & 3;
+        count = asize & ((-1ul) << size);
+        if(lbuf) {
+            if(size)
+                swapcpy(lbuf, abuf, count, (1 << size) - 1);
+            else
+                memcpy(lbuf, abuf, count);
         }
         break;
     }
@@ -131,12 +153,15 @@ void prepare_tunable(dtree *adt, const char *adtnname, const char *adtpname, dtr
         warning_count ++;
         return;
     }
-    ldtreg = dt_find_prop(ldt, ldtnode, "reg");
-    if(!ldtreg) {
-        printf("Property '%s.%s' not found in %s device tree.\n", ldtnname, "reg", "Linux");
-        warning_count ++;
-        return;
-    }
+    if(mode != TUNABLE_PLAIN) {
+        ldtreg = dt_find_prop(ldt, ldtnode, "reg");
+        if(!ldtreg) {
+            printf("Property '%s.%s' not found in %s device tree.\n", ldtnname, "reg", "Linux");
+            warning_count ++;
+            return;
+        }
+    } else
+        ldtreg = NULL;
 
     if(mode == TUNABLE_PCIE) {
         res = base & 0xFF;
@@ -149,15 +174,17 @@ void prepare_tunable(dtree *adt, const char *adtnname, const char *adtpname, dtr
         adtreg = NULL;
     }
 
-    res = rebuild_tunable(adtprop->buf, adtprop->size, adtreg ? adtreg->buf : vbase, adtreg ? adtreg->size / 16 : 1, NULL, ldtreg->buf, ldtreg->size / 16, mode, ldtnname, adtnname, adtpname);
+    res = rebuild_tunable(adtprop->buf, adtprop->size, adtreg ? adtreg->buf : vbase, adtreg ? adtreg->size / 16 : 1,
+                          NULL, ldtreg ? ldtreg->buf : NULL, ldtreg ? ldtreg->size / 16 : 0, mode, ldtnname, adtnname, adtpname);
     if(res < 0)
         return;
 
-    ldtprop = dt_set_prop(ldt, ldtnode, ldtpname, NULL, res * 12);
+    ldtprop = dt_set_prop(ldt, ldtnode, ldtpname, NULL, res);
     if(!ldtprop)
         return;
 
-    rebuild_tunable(adtprop->buf, adtprop->size, adtreg ? adtreg->buf : vbase, adtreg ? adtreg->size / 16 : 1, ldtprop->buf, ldtreg->buf, ldtreg->size / 16, mode, ldtnname, adtnname, adtpname);
+    rebuild_tunable(adtprop->buf, adtprop->size, adtreg ? adtreg->buf : vbase, adtreg ? adtreg->size / 16 : 1,
+                    ldtprop->buf, ldtreg ? ldtreg->buf : NULL, ldtreg ? ldtreg->size / 16 : 0, mode, ldtnname, adtnname, adtpname);
 }
 
 static int build_fuse_tunable(const struct tunable_fuse_map *map, uint64_t base, uint32_t *lbuf, uint64_t *lreg, unsigned lnreg, const char *ldtnname)

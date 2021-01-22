@@ -165,6 +165,10 @@ void loader_main(void *linux_dtb, struct iphone_boot_args *bootargs, uint64_t sm
     prepare_tunable(apple_dt, "/arm-io/apcie/pci-bridge2", "pcie-rc-tunables",             linux_dt, "/soc/pcie", "tunable-port2",             TUNABLE_PCIE_PARENT, 0 | 0x10000);
     prepare_fuse_tunable(linux_dt, "/soc/pcie", "tunable-fuse", m1_pcie_fuse_map, 0x6800c0000);
 
+    prepare_tunable(apple_dt, "/arm-io/pmgr", "voltage-states1",         linux_dt, "/soc/cpufreq", "tunable-ecpu-states",   TUNABLE_PLAIN, PLAIN_WORD);
+    prepare_tunable(apple_dt, "/arm-io/pmgr", "voltage-states5",         linux_dt, "/soc/cpufreq", "tunable-pcpu-states",   TUNABLE_PLAIN, PLAIN_WORD);
+    prepare_tunable(apple_dt, "/arm-io/pmgr", "mcx-fast-pcpu-frequency", linux_dt, "/soc/cpufreq", "tunable-pcpu-max-freq", TUNABLE_PLAIN, PLAIN_WORD);
+
     configure_x8r8g8b8();
 
     if(warning_count) {

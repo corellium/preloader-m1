@@ -16,6 +16,12 @@
 #define TUNABLE_FANCY           1
 #define TUNABLE_PCIE            2
 #define TUNABLE_PCIE_PARENT     3
+#define TUNABLE_PLAIN           4
+
+#define PLAIN_BYTE              0
+#define PLAIN_HALF              1
+#define PLAIN_WORD              2
+#define PLAIN_LONG              3
 
 void prepare_tunable(dtree *adt, const char *adtnname, const char *adtpname, dtree *ldt, const char *ldtnname, const char *ldtpname, unsigned mode, uint64_t base);
 
