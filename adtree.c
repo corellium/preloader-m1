@@ -93,6 +93,7 @@ static int adt_parse_int(void *_adtb, int remain, dtree *tree, dt_node *parent, 
 
         if(i != iname) {
             prop = calloc(sizeof(dt_prop), 1);
+            prop->parent = node;
             if(!prop)
                 return -1;
             prop->name = dt_dict_find(tree->names, nbuf, DT_DICT_ANY);
@@ -100,7 +101,7 @@ static int adt_parse_int(void *_adtb, int remain, dtree *tree, dt_node *parent, 
                 free(prop);
                 return -1;
             }
-            prop->buf = malloc(p_len(props));
+            prop->buf = calloc(p_len(props) + 1, 1);
             if(!prop->buf) {
                 free(prop);
                 return -1;

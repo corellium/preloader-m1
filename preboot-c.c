@@ -58,8 +58,9 @@ void loader_main(void *linux_dtb, struct iphone_boot_args *bootargs, uint64_t sm
     dtree *linux_dt, *apple_dt;
     dt_node *node;
     dt_prop *prop;
-    uint64_t memsize, base;
+    uint64_t memsize, base, size;
     unsigned i;
+    char *model;
 
     warning_count = 0;
     memsize = (bootargs->mem_size + 0x3ffffffful) & ~0x3ffffffful;
@@ -119,10 +120,15 @@ void loader_main(void *linux_dtb, struct iphone_boot_args *bootargs, uint64_t sm
         prop = dt_find_prop(linux_dt, node, "reg");
         if(prop) {
             base = dt_get64be(prop->buf);
-            if(base >= 0x900000000ul) {
-                base += memsize - 0x200000000ul;
-                dt_put64be(prop->buf, base);
+            if(base >= 0x900000000ul) { /* high range */
+                base = bootargs->phys_base + bootargs->mem_size;
+                size = (0x800000000ul + memsize) - base;
+            } else { /* low range */
+                base = 0x800000000ul;
+                size = bootargs->phys_base - base;
             }
+            dt_put64be(prop->buf, base);
+            dt_put64be(prop->buf + 8, size);
         }
     }
 
@@ -141,6 +147,22 @@ void loader_main(void *linux_dtb, struct iphone_boot_args *bootargs, uint64_t sm
                 dt_put64be(prop->buf + 48 * i + 16, rvbar + 8 * i);
     }
 
+    model = NULL;
+    if(apple_dt) {
+        node = dt_find_node(apple_dt, "/");
+        if(node) {
+            prop = dt_find_prop(apple_dt, node, "target-type");
+            if(prop)
+                model = prop->buf;
+        }
+    }
+    if(!model) {
+        model = "unknown";
+        warning_count ++;
+    }
+
+    printf("Running on '%s'...\n", model);
+
     prepare_tunable(apple_dt, "/arm-io/atc-phy0", "tunable_ATC0AXI2AF", linux_dt, "/soc/usb_drd0", "tunable-ATC0AXI2AF", TUNABLE_FANCY, 0x380000000);
     prepare_tunable(apple_dt, "/arm-io/usb-drd0", "tunable",            linux_dt, "/soc/usb_drd0", "tunable",            TUNABLE_LEGACY, 0);
     prepare_tunable(apple_dt, "/arm-io/atc-phy1", "tunable_ATC0AXI2AF", linux_dt, "/soc/usb_drd1", "tunable-ATC0AXI2AF", TUNABLE_FANCY, 0x500000000);
@@ -155,14 +177,28 @@ void loader_main(void *linux_dtb, struct iphone_boot_args *bootargs, uint64_t sm
     prepare_tunable(apple_dt, "/arm-io/apcie/pci-bridge0", "pcie-rc-gen3-shadow-tunables", linux_dt, "/soc/pcie", "tunable-port0-gen3-shadow", TUNABLE_PCIE_PARENT, 0);
     prepare_tunable(apple_dt, "/arm-io/apcie/pci-bridge0", "pcie-rc-gen4-shadow-tunables", linux_dt, "/soc/pcie", "tunable-port0-gen4-shadow", TUNABLE_PCIE_PARENT, 0);
     prepare_tunable(apple_dt, "/arm-io/apcie/pci-bridge0", "pcie-rc-tunables",             linux_dt, "/soc/pcie", "tunable-port0",             TUNABLE_PCIE_PARENT, 0);
-    prepare_tunable(apple_dt, "/arm-io/apcie/pci-bridge1", "apcie-config-tunables",        linux_dt, "/soc/pcie", "tunable-port1-config",      TUNABLE_PCIE_PARENT, 10);
-    prepare_tunable(apple_dt, "/arm-io/apcie/pci-bridge1", "pcie-rc-gen3-shadow-tunables", linux_dt, "/soc/pcie", "tunable-port1-gen3-shadow", TUNABLE_PCIE_PARENT, 0 | 0x8000);
-    prepare_tunable(apple_dt, "/arm-io/apcie/pci-bridge1", "pcie-rc-gen4-shadow-tunables", linux_dt, "/soc/pcie", "tunable-port1-gen4-shadow", TUNABLE_PCIE_PARENT, 0 | 0x8000);
-    prepare_tunable(apple_dt, "/arm-io/apcie/pci-bridge1", "pcie-rc-tunables",             linux_dt, "/soc/pcie", "tunable-port1",             TUNABLE_PCIE_PARENT, 0 | 0x8000);
-    prepare_tunable(apple_dt, "/arm-io/apcie/pci-bridge2", "apcie-config-tunables",        linux_dt, "/soc/pcie", "tunable-port2-config",      TUNABLE_PCIE_PARENT, 14);
-    prepare_tunable(apple_dt, "/arm-io/apcie/pci-bridge2", "pcie-rc-gen3-shadow-tunables", linux_dt, "/soc/pcie", "tunable-port2-gen3-shadow", TUNABLE_PCIE_PARENT, 0 | 0x10000);
-    prepare_tunable(apple_dt, "/arm-io/apcie/pci-bridge2", "pcie-rc-gen4-shadow-tunables", linux_dt, "/soc/pcie", "tunable-port2-gen4-shadow", TUNABLE_PCIE_PARENT, 0 | 0x10000);
-    prepare_tunable(apple_dt, "/arm-io/apcie/pci-bridge2", "pcie-rc-tunables",             linux_dt, "/soc/pcie", "tunable-port2",             TUNABLE_PCIE_PARENT, 0 | 0x10000);
+    if(!strcmp(model, "J274")) {
+        /* Mac Mini has xHCI and Ethernet */
+        prepare_tunable(apple_dt, "/arm-io/apcie/pci-bridge1", "apcie-config-tunables",        linux_dt, "/soc/pcie", "tunable-port1-config",      TUNABLE_PCIE_PARENT, 10);
+        prepare_tunable(apple_dt, "/arm-io/apcie/pci-bridge1", "pcie-rc-gen3-shadow-tunables", linux_dt, "/soc/pcie", "tunable-port1-gen3-shadow", TUNABLE_PCIE_PARENT, 0 | 0x8000);
+        prepare_tunable(apple_dt, "/arm-io/apcie/pci-bridge1", "pcie-rc-gen4-shadow-tunables", linux_dt, "/soc/pcie", "tunable-port1-gen4-shadow", TUNABLE_PCIE_PARENT, 0 | 0x8000);
+        prepare_tunable(apple_dt, "/arm-io/apcie/pci-bridge1", "pcie-rc-tunables",             linux_dt, "/soc/pcie", "tunable-port1",             TUNABLE_PCIE_PARENT, 0 | 0x8000);
+        prepare_tunable(apple_dt, "/arm-io/apcie/pci-bridge2", "apcie-config-tunables",        linux_dt, "/soc/pcie", "tunable-port2-config",      TUNABLE_PCIE_PARENT, 14);
+        prepare_tunable(apple_dt, "/arm-io/apcie/pci-bridge2", "pcie-rc-gen3-shadow-tunables", linux_dt, "/soc/pcie", "tunable-port2-gen3-shadow", TUNABLE_PCIE_PARENT, 0 | 0x10000);
+        prepare_tunable(apple_dt, "/arm-io/apcie/pci-bridge2", "pcie-rc-gen4-shadow-tunables", linux_dt, "/soc/pcie", "tunable-port2-gen4-shadow", TUNABLE_PCIE_PARENT, 0 | 0x10000);
+        prepare_tunable(apple_dt, "/arm-io/apcie/pci-bridge2", "pcie-rc-tunables",             linux_dt, "/soc/pcie", "tunable-port2",             TUNABLE_PCIE_PARENT, 0 | 0x10000);
+    } else {
+        /* don't waste time bringing these up on Macbooks */
+        node = dt_find_node(linux_dt, "/soc/pcie");
+        if(node) {
+            prop = dt_find_prop(linux_dt, node, "devpwr-on-1");
+            if(prop)
+                dt_delete_prop(prop);
+            prop = dt_find_prop(linux_dt, node, "devpwr-on-2");
+            if(prop)
+                dt_delete_prop(prop);
+        }
+    }
     prepare_fuse_tunable(linux_dt, "/soc/pcie", "tunable-fuse", m1_pcie_fuse_map, 0x6800c0000);
 
     prepare_tunable(apple_dt, "/arm-io/pmgr", "voltage-states1",         linux_dt, "/soc/cpufreq", "tunable-ecpu-states",   TUNABLE_PLAIN, PLAIN_WORD);
