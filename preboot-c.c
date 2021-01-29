@@ -187,6 +187,14 @@ void loader_main(void *linux_dtb, struct iphone_boot_args *bootargs, uint64_t sm
         prepare_tunable(apple_dt, "/arm-io/apcie/pci-bridge2", "pcie-rc-gen3-shadow-tunables", linux_dt, "/soc/pcie", "tunable-port2-gen3-shadow", TUNABLE_PCIE_PARENT, 0 | 0x10000);
         prepare_tunable(apple_dt, "/arm-io/apcie/pci-bridge2", "pcie-rc-gen4-shadow-tunables", linux_dt, "/soc/pcie", "tunable-port2-gen4-shadow", TUNABLE_PCIE_PARENT, 0 | 0x10000);
         prepare_tunable(apple_dt, "/arm-io/apcie/pci-bridge2", "pcie-rc-tunables",             linux_dt, "/soc/pcie", "tunable-port2",             TUNABLE_PCIE_PARENT, 0 | 0x10000);
+
+        /* remove keyboard and touchbar */
+        node = dt_find_node(linux_dt, "/soc/spi@235100000");
+        if(node)
+            dt_delete_node(node);
+        node = dt_find_node(linux_dt, "/soc/spi@23510c000");
+        if(node)
+            dt_delete_node(node);
     } else {
         /* don't waste time bringing these up on Macbooks */
         node = dt_find_node(linux_dt, "/soc/pcie");
