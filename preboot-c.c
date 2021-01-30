@@ -188,6 +188,8 @@ void loader_main(void *linux_dtb, struct iphone_boot_args *bootargs, uint64_t sm
         prepare_tunable(apple_dt, "/arm-io/apcie/pci-bridge2", "pcie-rc-gen4-shadow-tunables", linux_dt, "/soc/pcie", "tunable-port2-gen4-shadow", TUNABLE_PCIE_PARENT, 0 | 0x10000);
         prepare_tunable(apple_dt, "/arm-io/apcie/pci-bridge2", "pcie-rc-tunables",             linux_dt, "/soc/pcie", "tunable-port2",             TUNABLE_PCIE_PARENT, 0 | 0x10000);
 
+        prepare_tunable(apple_dt, "/chosen", "mac-address-ethernet0", linux_dt, "/chosen", "hwaddr-eth0", TUNABLE_PLAIN, PLAIN_BYTE);
+
         /* remove keyboard and touchbar */
         node = dt_find_node(linux_dt, "/soc/spi@235100000");
         if(node)
@@ -213,6 +215,10 @@ void loader_main(void *linux_dtb, struct iphone_boot_args *bootargs, uint64_t sm
     prepare_tunable(apple_dt, "/arm-io/pmgr", "voltage-states5",         linux_dt, "/soc/cpufreq", "tunable-pcpu-states",    TUNABLE_PLAIN, PLAIN_WORD);
     prepare_tunable(apple_dt, "/arm-io/pmgr", "mcx-fast-pcpu-frequency", linux_dt, "/soc/cpufreq", "tunable-pcpu-fast-freq", TUNABLE_PLAIN, PLAIN_WORD);
     prepare_tunable(apple_dt, "/arm-io/mcc",  "dramcfg-data",            linux_dt, "/soc/cpufreq", "tunable-pcpu-fast-dcfg", TUNABLE_PLAIN, PLAIN_WORD);
+
+    prepare_tunable(apple_dt, "/chosen", "mac-address-wifi0",      linux_dt, "/chosen", "hwaddr-wlan0", TUNABLE_PLAIN, PLAIN_BYTE);
+    prepare_tunable(apple_dt, "/chosen", "mac-address-bluetooth0", linux_dt, "/chosen", "hwaddr-bt0",   TUNABLE_PLAIN, PLAIN_BYTE);
+    prepare_tunable(apple_dt, "/arm-io/wlan", "module-instance",   linux_dt, "/chosen", "module-wlan0", TUNABLE_PLAIN, PLAIN_BYTE);
 
     configure_x8r8g8b8();
 
