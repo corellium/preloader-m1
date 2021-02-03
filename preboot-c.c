@@ -38,6 +38,79 @@ static void configure_x8r8g8b8(void)
     *(volatile uint32_t *)DISP0_SURF0_PIXFMT = 0x5000; /* pixfmt: x8r8g8b8. if you try other modes they are pretty ugly */
 }
 
+static const struct tunable_fuse_map m1_acio_fuse_map[] = {
+    /* src_addr, dst_offs, src_[lsb,width], dst_[lsb,width] */
+    { 0x23d2bc438, 0x2a38, 19, 6,  0, 7 },
+    { 0x23d2bc438, 0x2a38, 25, 6, 17, 7 },
+    { 0x23d2bc438, 0x2aa4, 31, 1, 17, 2 },
+    { 0x23d2bc438, 0x0a04, 14, 5,  2, 5 },
+    { 0x23d2bc43c, 0x2aa4,  0, 1, 17, 2 },
+    { 0x23d2bc43c, 0x2a20,  1, 3, 14, 3 },
+    { 0x23d2bc438, 0x222c,  7, 2,  9, 2 },
+    { 0x23d2bc438, 0x222c,  4, 3, 12, 3 },
+    { 0x23d2bc438, 0x22a4, 12, 2, 17, 2 },
+    { 0x23d2bc438, 0x2220,  9, 3, 14, 3 },
+    { 0x23d2bc438, 0x0a04, 14, 5,  2, 5 },
+    { 0 } };
+
+static void prepare_atc_tunables(dtree *apple_dt, dtree *linux_dt, int atc)
+{
+    char src_phy[24], src_usb[24], src_cio[16], dst_phy[16], dst_usb[16], dst_cio[12];
+    uint64_t base = atc ? 0x500000000ul : 0x380000000ul;
+
+    strcpy(src_phy, "/arm-io/atc-phy0"); src_phy[15] += atc;
+    strcpy(src_usb, "/arm-io/usb-drd0"); src_usb[15] += atc;
+    strcpy(src_cio, "/arm-io/acio0");    src_cio[12] += atc;
+    strcpy(dst_phy, "/soc/atcphy0");     dst_phy[11] += atc;
+    strcpy(dst_usb, "/soc/usb_drd0");    dst_usb[12] += atc;
+    strcpy(dst_cio, "/soc/acio0");       dst_cio[9]  += atc;
+
+    prepare_tunable(apple_dt, src_phy, "tunable_ATC0AXI2AF",             linux_dt, dst_usb, "tunable-ATC0AXI2AF",            TUNABLE_FANCY, base);
+    prepare_tunable(apple_dt, src_usb, "tunable",                        linux_dt, dst_usb, "tunable",                       TUNABLE_LEGACY, 0);
+
+    prepare_tunable(apple_dt, src_phy, "tunable_ATC0AXI2AF",             linux_dt, dst_phy, "tunable-ATC0AXI2AF",            TUNABLE_FANCY, base);
+    prepare_tunable(apple_dt, src_phy, "tunable_ATC_FABRIC",             linux_dt, dst_phy, "tunable-ATC_FABRIC",            TUNABLE_FANCY, base + 0x3045000);
+    prepare_tunable(apple_dt, src_phy, "tunable_AUS_CMN_SHM",            linux_dt, dst_phy, "tunable-AUS_CMN_SHM",           TUNABLE_FANCY, base + 0x3000a00);
+    prepare_tunable(apple_dt, src_phy, "tunable_AUS_CMN_TOP",            linux_dt, dst_phy, "tunable-AUS_CMN_TOP",           TUNABLE_FANCY, base + 0x3000800);
+    prepare_tunable(apple_dt, src_phy, "tunable_AUSPLL_CORE",            linux_dt, dst_phy, "tunable-AUSPLL_CORE",           TUNABLE_FANCY, base + 0x3002200);
+    prepare_tunable(apple_dt, src_phy, "tunable_AUSPLL_TOP",             linux_dt, dst_phy, "tunable-AUSPLL_TOP",            TUNABLE_FANCY, base + 0x3002000);
+    prepare_tunable(apple_dt, src_phy, "tunable_CIO3PLL_CORE",           linux_dt, dst_phy, "tunable-CIO3PLL_CORE",          TUNABLE_FANCY, base + 0x3002a00);
+    prepare_tunable(apple_dt, src_phy, "tunable_CIO3PLL_TOP",            linux_dt, dst_phy, "tunable-CIO3PLL_TOP",           TUNABLE_FANCY, base + 0x3002800);
+    prepare_tunable(apple_dt, src_phy, "tunable_CIO_LN0_AUSPMA_RX_EQ",   linux_dt, dst_phy, "tunable-CIO_LN0_AUSPMA_RX_EQ",  TUNABLE_FANCY, base + 0x300a000);
+    prepare_tunable(apple_dt, src_phy, "tunable_USB_LN0_AUSPMA_RX_EQ",   linux_dt, dst_phy, "tunable-USB_LN0_AUSPMA_RX_EQ",  TUNABLE_FANCY, base + 0x300a000);
+    prepare_tunable(apple_dt, src_phy, "tunable_CIO_LN0_AUSPMA_RX_SHM",  linux_dt, dst_phy, "tunable-CIO_LN0_AUSPMA_RX_SHM", TUNABLE_FANCY, base + 0x300b000);
+    prepare_tunable(apple_dt, src_phy, "tunable_USB_LN0_AUSPMA_RX_SHM",  linux_dt, dst_phy, "tunable-USB_LN0_AUSPMA_RX_SHM", TUNABLE_FANCY, base + 0x300b000);
+    prepare_tunable(apple_dt, src_phy, "tunable_CIO_LN0_AUSPMA_RX_TOP",  linux_dt, dst_phy, "tunable-CIO_LN0_AUSPMA_RX_TOP", TUNABLE_FANCY, base + 0x3009000);
+    prepare_tunable(apple_dt, src_phy, "tunable_USB_LN0_AUSPMA_RX_TOP",  linux_dt, dst_phy, "tunable-USB_LN0_AUSPMA_RX_TOP", TUNABLE_FANCY, base + 0x3009000);
+    prepare_tunable(apple_dt, src_phy, "tunable_CIO_LN0_AUSPMA_TX_TOP",  linux_dt, dst_phy, "tunable-CIO_LN0_AUSPMA_TX_TOP", TUNABLE_FANCY, base + 0x300c000);
+    prepare_tunable(apple_dt, src_phy, "tunable_DP_LN0_AUSPMA_TX_TOP",   linux_dt, dst_phy, "tunable-DP_LN0_AUSPMA_TX_TOP",  TUNABLE_FANCY, base + 0x300c000);
+    prepare_tunable(apple_dt, src_phy, "tunable_USB_LN0_AUSPMA_TX_TOP",  linux_dt, dst_phy, "tunable-USB_LN0_AUSPMA_TX_TOP", TUNABLE_FANCY, base + 0x300c000);
+    prepare_tunable(apple_dt, src_phy, "tunable_CIO_LN1_AUSPMA_RX_EQ",   linux_dt, dst_phy, "tunable-CIO_LN1_AUSPMA_RX_EQ",  TUNABLE_FANCY, base + 0x3011000);
+    prepare_tunable(apple_dt, src_phy, "tunable_USB_LN1_AUSPMA_RX_EQ",   linux_dt, dst_phy, "tunable-USB_LN1_AUSPMA_RX_EQ",  TUNABLE_FANCY, base + 0x3011000);
+    prepare_tunable(apple_dt, src_phy, "tunable_CIO_LN1_AUSPMA_RX_SHM",  linux_dt, dst_phy, "tunable-CIO_LN1_AUSPMA_RX_SHM", TUNABLE_FANCY, base + 0x3012000);
+    prepare_tunable(apple_dt, src_phy, "tunable_USB_LN1_AUSPMA_RX_SHM",  linux_dt, dst_phy, "tunable-USB_LN1_AUSPMA_RX_SHM", TUNABLE_FANCY, base + 0x3012000);
+    prepare_tunable(apple_dt, src_phy, "tunable_CIO_LN1_AUSPMA_RX_TOP",  linux_dt, dst_phy, "tunable-CIO_LN1_AUSPMA_RX_TOP", TUNABLE_FANCY, base + 0x3010000);
+    prepare_tunable(apple_dt, src_phy, "tunable_USB_LN1_AUSPMA_RX_TOP",  linux_dt, dst_phy, "tunable-USB_LN1_AUSPMA_RX_TOP", TUNABLE_FANCY, base + 0x3010000);
+    prepare_tunable(apple_dt, src_phy, "tunable_CIO_LN1_AUSPMA_TX_TOP",  linux_dt, dst_phy, "tunable-CIO_LN1_AUSPMA_TX_TOP", TUNABLE_FANCY, base + 0x3013000);
+    prepare_tunable(apple_dt, src_phy, "tunable_DP_LN1_AUSPMA_TX_TOP",   linux_dt, dst_phy, "tunable-DP_LN1_AUSPMA_TX_TOP",  TUNABLE_FANCY, base + 0x3013000);
+    prepare_tunable(apple_dt, src_phy, "tunable_USB_LN1_AUSPMA_TX_TOP",  linux_dt, dst_phy, "tunable-USB_LN1_AUSPMA_TX_TOP", TUNABLE_FANCY, base + 0x3013000);
+    prepare_tunable(apple_dt, src_phy, "tunable_USB_ACIOPHY_TOP",        linux_dt, dst_phy, "tunable-USB_ACIOPHY_TOP",       TUNABLE_FANCY, base + 0x3000000);
+
+    prepare_fuse_tunable(linux_dt, dst_phy, "tunable-fuse", m1_acio_fuse_map, base + 0x3000000);
+
+    prepare_tunable(apple_dt, src_cio, "fw_int_ctl_management_tunables", linux_dt, dst_cio, "tunable-fw_int_ctl_management", TUNABLE_PCIE, 0 | 0x04000);
+    prepare_tunable(apple_dt, src_cio, "hbw_fabric_tunables",            linux_dt, dst_cio, "tunable-hbw_fabric",            TUNABLE_PCIE, 3);
+    prepare_tunable(apple_dt, src_cio, "hi_dn_merge_fabric_tunables",    linux_dt, dst_cio, "tunable-hi_dn_merge_fabric",    TUNABLE_PCIE, 0 | 0xfc000);
+    prepare_tunable(apple_dt, src_cio, "hi_up_merge_fabric_tunables",    linux_dt, dst_cio, "tunable-hi_up_merge_fabric",    TUNABLE_PCIE, 0 | 0xf8000);
+    prepare_tunable(apple_dt, src_cio, "hi_up_tx_desc_fabric_tunables",  linux_dt, dst_cio, "tunable-hi_up_tx_desc_fabric",  TUNABLE_PCIE, 0 | 0xf0000);
+    prepare_tunable(apple_dt, src_cio, "hi_up_tx_data_fabric_tunables",  linux_dt, dst_cio, "tunable-hi_up_tx_data_fabric",  TUNABLE_PCIE, 0 | 0xec000);
+    prepare_tunable(apple_dt, src_cio, "hi_up_rx_desc_fabric_tunables",  linux_dt, dst_cio, "tunable-hi_up_rx_desc_fabric",  TUNABLE_PCIE, 0 | 0xe8000);
+    prepare_tunable(apple_dt, src_cio, "hi_up_wr_fabric_tunables",       linux_dt, dst_cio, "tunable-hi_up_wr_fabric",       TUNABLE_PCIE, 0 | 0xf4000);
+    prepare_tunable(apple_dt, src_cio, "lbw_fabric_tunables",            linux_dt, dst_cio, "tunable-lbw_fabric",            TUNABLE_PCIE, 4);
+    prepare_tunable(apple_dt, src_cio, "pcie_adapter_regs_tunables",     linux_dt, dst_cio, "tunable-pcie_adapter_regs",     TUNABLE_PCIE, 5 | 0x01000);
+    prepare_tunable(apple_dt, src_cio, "top_tunables",                   linux_dt, dst_cio, "tunable-top",                   TUNABLE_PCIE, 2);
+}
+
 static const struct tunable_fuse_map m1_pcie_fuse_map[] = {
     /* src_addr, dst_offs, src_[lsb,width], dst_[lsb,width] */
     { 0x23d2bc084, 0x6238,  4, 6,  0, 7 },
@@ -163,10 +236,8 @@ void loader_main(void *linux_dtb, struct iphone_boot_args *bootargs, uint64_t sm
 
     printf("Running on '%s'...\n", model);
 
-    prepare_tunable(apple_dt, "/arm-io/atc-phy0", "tunable_ATC0AXI2AF", linux_dt, "/soc/usb_drd0", "tunable-ATC0AXI2AF", TUNABLE_FANCY, 0x380000000);
-    prepare_tunable(apple_dt, "/arm-io/usb-drd0", "tunable",            linux_dt, "/soc/usb_drd0", "tunable",            TUNABLE_LEGACY, 0);
-    prepare_tunable(apple_dt, "/arm-io/atc-phy1", "tunable_ATC0AXI2AF", linux_dt, "/soc/usb_drd1", "tunable-ATC0AXI2AF", TUNABLE_FANCY, 0x500000000);
-    prepare_tunable(apple_dt, "/arm-io/usb-drd1", "tunable",            linux_dt, "/soc/usb_drd1", "tunable",            TUNABLE_LEGACY, 0);
+    prepare_atc_tunables(apple_dt, linux_dt, 0);
+    prepare_atc_tunables(apple_dt, linux_dt, 1);
 
     prepare_tunable(apple_dt, "/arm-io/apcie",             "apcie-axi2af-tunables",        linux_dt, "/soc/pcie", "tunable-axi2af",            TUNABLE_PCIE, 4);
     prepare_tunable(apple_dt, "/arm-io/apcie",             "apcie-common-tunables",        linux_dt, "/soc/pcie", "tunable-common",            TUNABLE_PCIE, 1);

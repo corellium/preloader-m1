@@ -55,8 +55,9 @@ static int rebuild_tunable(void *abuf, unsigned asize, uint64_t *areg, unsigned 
                 count += write_tunable_item(lbuf ? lbuf + count * 3 : NULL, areg[0] + offs, *(uint32_t *)(abuf + aoffs + 4), *(uint32_t *)(abuf + aoffs + 8), lreg, lnreg, ldtnname);
                 aoffs += 12;
                 break;
-            case 255:
-                return 0;
+            case 255: /* skip */
+                aoffs += 12;
+                break;
             default:
                 printf("Tunable %s.%s has unexpected item size %d\n", adtnname, adtpname, size);
                 warning_count ++;
