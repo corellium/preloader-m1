@@ -56,14 +56,18 @@ static const struct tunable_fuse_map m1_acio_fuse_map[] = {
 static void prepare_atc_tunables(dtree *apple_dt, dtree *linux_dt, int atc)
 {
     char src_phy[24], src_usb[24], src_cio[16], dst_phy[16], dst_usb[16], dst_cio[12];
+    char src_pxc[24], src_pxb[32], dst_pxc[12];
     uint64_t base = atc ? 0x500000000ul : 0x380000000ul;
 
     strcpy(src_phy, "/arm-io/atc-phy0"); src_phy[15] += atc;
     strcpy(src_usb, "/arm-io/usb-drd0"); src_usb[15] += atc;
     strcpy(src_cio, "/arm-io/acio0");    src_cio[12] += atc;
+    strcpy(src_pxc, "/arm-io/apciec0");  src_pxc[14] += atc;
+    strcpy(src_pxb, "/arm-io/apciec0/pcic0-bridge");  src_pxb[14] += atc; src_pxb[20] += atc;
     strcpy(dst_phy, "/soc/atcphy0");     dst_phy[11] += atc;
     strcpy(dst_usb, "/soc/usb_drd0");    dst_usb[12] += atc;
     strcpy(dst_cio, "/soc/acio0");       dst_cio[9]  += atc;
+    strcpy(dst_pxc, "/soc/pciec0");      dst_pxc[10] += atc;
 
     prepare_tunable(apple_dt, src_phy, "tunable_ATC0AXI2AF",             linux_dt, dst_usb, "tunable-ATC0AXI2AF",            TUNABLE_FANCY, base);
     prepare_tunable(apple_dt, src_usb, "tunable",                        linux_dt, dst_usb, "tunable",                       TUNABLE_LEGACY, 0);
@@ -107,8 +111,16 @@ static void prepare_atc_tunables(dtree *apple_dt, dtree *linux_dt, int atc)
     prepare_tunable(apple_dt, src_cio, "hi_up_rx_desc_fabric_tunables",  linux_dt, dst_cio, "tunable-hi_up_rx_desc_fabric",  TUNABLE_PCIE, 0 | 0xe8000);
     prepare_tunable(apple_dt, src_cio, "hi_up_wr_fabric_tunables",       linux_dt, dst_cio, "tunable-hi_up_wr_fabric",       TUNABLE_PCIE, 0 | 0xf4000);
     prepare_tunable(apple_dt, src_cio, "lbw_fabric_tunables",            linux_dt, dst_cio, "tunable-lbw_fabric",            TUNABLE_PCIE, 4);
-    prepare_tunable(apple_dt, src_cio, "pcie_adapter_regs_tunables",     linux_dt, dst_cio, "tunable-pcie_adapter_regs",     TUNABLE_PCIE, 5 | 0x01000);
+    prepare_tunable(apple_dt, src_cio, "pcie_adapter_regs_tunables",     linux_dt, dst_cio, "tunable-pcie_adapter_regs",     TUNABLE_PCIE, 5);
     prepare_tunable(apple_dt, src_cio, "top_tunables",                   linux_dt, dst_cio, "tunable-top",                   TUNABLE_PCIE, 2);
+
+    prepare_tunable(apple_dt, src_cio, "thunderbolt-drom",               linux_dt, dst_cio, "thunderbolt-drom",              TUNABLE_PLAIN, PLAIN_BYTE);
+
+    prepare_tunable(apple_dt, src_pxc, "atc-apcie-debug-tunables",       linux_dt, dst_pxc, "tunable-debug",                 TUNABLE_PCIE, 6);
+    prepare_tunable(apple_dt, src_pxc, "atc-apcie-fabric-tunables",      linux_dt, dst_pxc, "tunable-fabric",                TUNABLE_PCIE, 4);
+    prepare_tunable(apple_dt, src_pxc, "atc-apcie-oe-fabric-tunables",   linux_dt, dst_pxc, "tunable-oe-fabric",             TUNABLE_PCIE, 5);
+    prepare_tunable(apple_dt, src_pxc, "atc-apcie-rc-tunables",          linux_dt, dst_pxc, "tunable-rc",                    TUNABLE_PCIE, 0);
+    prepare_tunable(apple_dt, src_pxb, "apcie-config-tunables",          linux_dt, dst_pxc, "tunable-port0-config",          TUNABLE_PCIE_PARENT, 3);
 }
 
 static const struct tunable_fuse_map m1_pcie_fuse_map[] = {
@@ -138,7 +150,7 @@ void loader_main(void *linux_dtb, struct iphone_boot_args *bootargs, uint64_t sm
     warning_count = 0;
     memsize = (bootargs->mem_size + 0x3ffffffful) & ~0x3ffffffful;
 
-    setarena(0x880000000ul, 0x100000);
+    setarena(0x880000000ul, 0x400000);
     setvideo((void *)bootargs->video.phys, bootargs->video.width, bootargs->video.height, bootargs->video.stride);
 
     printf("Starting Linux loader stub.\n");
